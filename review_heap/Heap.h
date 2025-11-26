@@ -38,6 +38,8 @@ private:
 
         while (child < _size)
         {
+            // 循环内部也要判断 child 以及 child + 1 是否比size 小
+            // 否则有bug，因为child + 1 可能大于size
             if (child + 1 < _size && _arr[child] > _arr[child + 1])
             {
                 child++;
@@ -61,6 +63,7 @@ public:
         :_size(0)
         ,_capacity(capacity)
     {
+        // new 的是 capacity 不是size
         _arr = new T[_capacity];
     }
 
@@ -119,6 +122,7 @@ public:
 
     ~Heap()
     {
+        // delete[] 不是 delete
         delete[] _arr;
         _size = _capacity = 0;
     }
