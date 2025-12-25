@@ -81,15 +81,21 @@ public:
         if (it != _timers.end())
         {
             std::shared_ptr<TimerTask> tsp(_timers[id].lock());
-            for (auto& slot : _wheel)
-            {
-                slot.erase(std::remove(slot.begin(), slot.end(), tsp), slot.end());
-            }
+            // for (auto& slot : _wheel)
+            // {
+            //     slot.erase(std::remove(slot.begin(), slot.end(), tsp), slot.end());
+            // }
 
             size_t pos = (_tick + it->second.lock()->GetTimeOut()) % _capacity;
             _wheel[pos].push_back(tsp);
         }
         return;
+    }
+
+    void RunTimer()
+    {
+        _tick = (_tick + 1) % _capacity;
+        _wheel[_tick].clear();
     }
 
     ~TimerWheel()
@@ -104,16 +110,49 @@ private:
     std::unordered_map<uint64_t, std::weak_ptr<TimerTask>> _timers;
 };
 
-void Print()
+class Test
 {
-    std::cout << "hello" << std::endl;
+public:
+    Test()
+    {
+        std::cout << "构造" << std::endl;
+    }
+
+    ~Test()
+    {
+        std::cout << "析构" << std::endl;
+    }
+
+};
+
+void Del(Test* t)
+{
+    delete t;
 }
+
 
 int main()
 {
-    TimerWheel wheel(100);
-    wheel.AddTimer(10, 1, Print);
+    TimerWheel tw(60);
 
-    sleep(10);
+    Test* t = new Test();
+
+    tw.AddTimer(888, 5, std::bind(Del, t));
+
+    for (int i = 0; i < 5; ++i)
+    {
+        sleep(1);
+        tw.RefreshTimer(888);
+        std::cout << "时间轮更新，5s钟后执行！" << std::endl;
+        tw.RunTimer();
+    }
+
+    while (true)
+    {
+        sleep(1);
+        std::cout << "-------------------------" << std::endl;
+        tw.RunTimer();
+    }
+
     return 0;
 }
