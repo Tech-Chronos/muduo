@@ -6,6 +6,7 @@
 #include <string>
 #include <cstdint>
 #include <cassert>
+#include <cstring>
 
 #define BUFFER_SIZE 1024
 
@@ -24,7 +25,7 @@ public:
     }
 
     // 2. 获取读位置偏移量
-    char *GetReadPos()
+    char *GetReadPos() 
     {
         return &_buffer[0] + _reader_idx;
     }
@@ -42,7 +43,7 @@ public:
     }
 
     // 5. 获取可读数据区域大小
-    size_t GetReadableDataNum()
+    size_t GetReadableDataNum() const
     {
         return _writer_idx - _reader_idx;
     }
@@ -92,48 +93,98 @@ public:
     }
 
     // 9. 写入
-    void Write(const void* data, size_t len)
+    void Write(const char *data, size_t len)
     {
         EnsureAmpleSpace(len);
-        const char* d = static_cast<const char*>(data);
-        std::copy(d, d + len, GetWritePos());
+        
+        std::copy(data, data + len, GetWritePos());
     }
 
-    void WriteString(const std::string& data)
+    void WriteAndPush(const char *data, size_t len)
+    {
+        Write(data, len);
+        MoveWriteOffset(len);
+    }
+
+    void WriteString(const std::string &data)
     {
         Write(data.c_str(), data.size());
     }
 
-    void WriteBuffer(Buffer& data)
+    void WriteStringAndPush(const std::string &data)
+    {
+        WriteString(data);
+        MoveWriteOffset(data.size());
+    }
+
+    void WriteBuffer(Buffer &data)
     {
         Write(data.GetReadPos(), data.GetReadableDataNum());
     }
 
-    // 10. 读取
-    void Read(void* buf, size_t len)
+    void WriteBufferAndPush(Buffer& data)
     {
-        assert(len < GetReadableDataNum());
-        std::copy(GetReadPos(), GetReadPos() + GetReadableDataNum(), (char*)buf);
+        WriteBuffer(data);
+        MoveWriteOffset(data.GetReadableDataNum());
+    }
+
+    // 10. 读取
+    void Read(void *buf, size_t len)
+    {
+        assert(len <= GetReadableDataNum());
+        std::copy(GetReadPos(), GetReadPos() + len, (char *)buf);
+    }
+
+    void ReadAndPop(void* buf, size_t len)
+    {
+        Read(buf, len);
+        MoveReadOffset(len);
     }
 
     std::string ReadString(size_t len)
     {
+        assert(len <= GetReadableDataNum());
         std::string str;
-        str.resize(GetReadableDataNum());
+        str.resize(len);
         Read(&str[0], len);
         return str;
     }
 
     std::string ReadStringAndPop(size_t len)
     {
-        ReadString(len);
+        std::string ret = ReadString(len);
         MoveReadOffset(len);
+        return ret;
     }
 
+    // 11. 获取一行数据
+    const char* FindCRLF()
+    {
+        const char* ret = (const char*)memchr(GetReadPos(), '\n' , GetReadableDataNum());
+        return ret;
+    }
+
+    std::string GetLine()
+    {
+        const char* ret = FindCRLF();
+        if (!ret) return std::string();
+        size_t size = ret - GetReadPos() + 1;
+        return ReadString(size);
+    }
+
+    std::string GetLineAndPop()
+    {
+        std::string str = GetLine();
+        MoveReadOffset(str.size());
+        return str;
+    }
+
+    // 12. 清空数据
     void Clear()
     {
         _writer_idx = _reader_idx = 0;
     }
+
 private:
     std::vector<char> _buffer;
     uint64_t _writer_idx;
