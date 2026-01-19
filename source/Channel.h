@@ -3,12 +3,13 @@
 #include <functional>
 #include <sys/epoll.h>
 
+class EventLoop;
 class Poller;               //  前置声明
 using EventCallback = std::function<void()>;
 
 class Channel {
 public:
-    Channel(int fd, Poller* poller);
+    Channel(int fd, EventLoop* loop);
 
     int Fd() const;
     uint32_t GetEvents() const;
@@ -36,7 +37,7 @@ private:
     int _fd;
     uint32_t _events;
     uint32_t _revents;
-    Poller* _poller;         // non-owning
+    EventLoop* _loop;         
 
     EventCallback _write_cb, _read_cb, _error_cb, _close_cb, _any_cb;
 };

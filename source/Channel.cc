@@ -1,17 +1,18 @@
 #include "Channel.h"
 #include "Poller.h"
+#include "EventLoop.h"
 
-Channel::Channel(int fd, Poller *poller)
-    : _fd(fd), _events(0), _revents(0), _poller(poller) {}
+Channel::Channel(int fd, EventLoop *loop)
+    : _fd(fd), _events(0), _revents(0), _loop(loop) {}
 
 void Channel::Update()
 {
-    _poller->UpdateEvents(this);
+    _loop->UpdateEvents(this);
 }
 
 void Channel::Remove()
 {
-    _poller->RemoveEvent(this);
+    _loop->RemoveEvent(this);
 }
 
 uint32_t Channel::GetEvents() const

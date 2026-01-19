@@ -3,10 +3,11 @@
 #include "Socket.hpp"
 #include "Channel.h"
 #include "Poller.h"
+#include "EventLoop.h"
 
 int main()
 {
-    Poller poll;
+    EventLoop eventloop;
     
     return 0;
 }
