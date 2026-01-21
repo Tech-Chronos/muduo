@@ -15,6 +15,8 @@ public:
     uint32_t GetEvents() const;
     void SetRevents(uint32_t revents);
 
+    bool Readable();
+    bool Writable();
     void EnableRead();
     void EnableWrite();
     void DisableRead();

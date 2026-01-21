@@ -5,10 +5,13 @@
 #include "Poller.h"
 #include "EventLoop.h"
 #include "TimerWheel.h"
+#include "Connection.h"
 
 int main()
 {
-    EventLoop eventloop;
+    uint64_t id = 100;
+    EventLoop loop;
+    Connection conn(id, 2, &loop);
     
     return 0;
 }

@@ -169,6 +169,7 @@ public:
     ssize_t RecvNonBlock(char* buffer, size_t size)
     {
         ssize_t ret = Recv(buffer, size, MSG_DONTWAIT);
+        return ret;
     }
 
     // 发送

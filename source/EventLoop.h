@@ -23,6 +23,7 @@ public:
 public:
     EventLoop();
     bool IsInLoop();
+    void AssertInLoop();
     void QueueInLoop(const Functor& cb);
     // 判断当前的任务是否在当前线程中，是就执行，不是就插入队列
     void RunInLoop(const Functor& cb);

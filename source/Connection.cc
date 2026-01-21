@@ -1,21 +1,70 @@
 #include "Connection.h"
 
-Connection::Connection(EventLoop* loop, MessageCallBack message_cb, 
-                       AnyEventCallBack any_cb, ConnectedCallBack conn_cb,
-                       CloseCallBack close_cb, CloseCallBack server_close_cb)
-    : _loop(loop)
-    , _channel(_fd, _loop)
-    , _enable_inactive_release(false)
-    , _message_cb(message_cb)
-    , _any_cb(any_cb)
-    , _conn_cb(conn_cb)
-    , _close_cb(close_cb)
-    , _server_close_cb(server_close_cb)
+////////////// public /////////////////
+Connection::Connection(uint64_t conn_id, int fd, EventLoop *loop)
+    : _conn_id(conn_id), _fd(fd), _socket(_fd), _loop(loop), _channel(_fd, _loop), _enable_inactive_release(false), _status(CONNECTING)
 {
-    srand(time(nullptr));
-    _conn_id = rand() % 1024;
+    // 设置channel回调函数
+    _channel.SetReadCb(std::bind(&Connection::HandleRead, this));
+    _channel.SetWriteCb(std::bind(&Connection::HandleWrite, this));
+    _channel.SetErrorCb(std::bind(&Connection::HandleError, this));
+    _channel.SetCloseCb(std::bind(&Connection::HandleClose, this));
+    _channel.SetAnyCb(std::bind(&Connection::HandleAnyEvent, this));
 }
 
+Connection::~Connection()
+{
+    DBG_LOG("Release Connection : %p", this);
+}
+
+int Connection::GetFd()
+{
+    return _fd;
+}
+
+int Connection::GetConnId()
+{
+    return _conn_id;
+}
+
+/// @brief 设置协议类型
+void Connection::SetContext(const Any &context)
+{
+    _context = context;
+}
+
+Any *Connection::GetContext()
+{
+    return &_context;
+}
+
+/// @brief 组件使用者设置的4个回调函数
+void Connection::SetConnectedCallback(const ConnectedCallBack &conn_cb)
+{
+    _conn_cb = conn_cb;
+}
+
+void Connection::SetMessageDealCallback(const MessageCallBack &message_cb)
+{
+    _message_cb = message_cb;
+}
+
+void Connection::SetCloseCallback(const CloseCallBack &close_cb)
+{
+    _close_cb = close_cb;
+}
+
+void Connection::SetServerCloseCallback(const CloseCallBack &server_close_cb)
+{
+    _server_close_cb = server_close_cb; 
+}
+
+void Connection::SetAnyEventCallback(const AnyEventCallBack &any_cb)
+{
+    _any_cb = any_cb;
+}
+
+////////////// private /////////////////
 /// @brief 处理读事件
 void Connection::HandleRead()
 {
@@ -25,7 +74,7 @@ void Connection::HandleRead()
     // 错误读取不是真正的关闭连接
     if (ret < 0)
     {
-        ShutDown();
+        ShutDownInLoop();
         return;
     }
     // 2. 将接收到的数据放到缓冲区中
@@ -33,7 +82,8 @@ void Connection::HandleRead()
 
     // 3. 业务处理
     if (_in_buffer.GetReadableDataNum() > 0)
-        _message_cb(shared_from_this(), &_in_buffer); // 获取当前对象的智能指针
+        if (_message_cb)
+            _message_cb(shared_from_this(), &_in_buffer); // 获取当前对象的智能指针
 }
 
 /// @brief 处理写事件
@@ -91,9 +141,53 @@ void Connection::HandleAnyEvent()
     {
         _loop->RefreshTimer(_conn_id);
     }
-    // 2. 如果还有其他要执行的，在此执行
+    // 2. 如果还有其他要执行的，在此执行，由用户给定
     if (_any_cb)
         _any_cb(shared_from_this());
+}
+
+void Connection::Established()
+{
+    _loop->RunInLoop(std::bind(&Connection::EstablishedInLoop, this));
+}
+
+void Connection::Send(char *data, size_t len)
+{
+    _loop->RunInLoop(std::bind(&Connection::SendInLoop, this, data, len));
+}
+
+void Connection::ShutDown()
+{
+    _loop->RunInLoop(std::bind(&Connection::ShutDownInLoop, this));
+}
+
+void Connection::Release()
+{
+    _loop->RunInLoop(std::bind(&Connection::ReleaseInLoop, this));
+}
+
+void Connection::AddInactiveEventRelease(int sec)
+{
+    _loop->RunInLoop(std::bind(&Connection::AddInactiveEventReleaseInLoop, this, sec));
+}
+
+void Connection::CancelInactiveEventRelease()
+{
+    _loop->RunInLoop(std::bind(&Connection::CancelInactiveEventReleaseInLoop, this));
+}
+
+
+// 必须保证这个任务在自己的eventloop中立即执行，因为加入业务线程执行，把这个任务放到任务队列中，但是eventloop还没来得及处理
+// 此时又突然来了一个事件，那就会造成这个新来的事件会拿着旧的协议进行处理，就会出错
+// 所以必须在自己的eventloop中立即处理这个函数，不能放到业务线程处理！！！！
+void Connection::Upgrade(const Any &context, const MessageCallBack &message_cb,
+                         const AnyEventCallBack &any_cb, const ConnectedCallBack &connect_cb,
+                         const CloseCallBack &close_cb)
+{
+    // 这里直接端严即可
+    _loop->AssertInLoop();
+    _loop->RunInLoop(std::bind(&Connection::UpgradeContext, this, context, message_cb,
+                               any_cb, connect_cb, close_cb));
 }
 
 /// @brief 获取链接之后，新链接所出的状态要进行设置
@@ -137,4 +231,76 @@ void Connection::ReleaseInLoop()
 
     // 告诉TCP SERVER，把这条链接从链接表中移除
     _server_close_cb(shared_from_this());
+}
+
+/// @brief 并不是真正的发送数据，只是把数据放到outbuffer中：业务完成后的数据data
+void Connection::SendInLoop(char *data, size_t len)
+{
+    if (_status == DISCONNECTED)
+        return;
+    // 1. 插入数据
+    _out_buffer.WriteAndPush(data, len);
+    // 2. 启动读事件
+    if (!_channel.Writable())
+        _channel.EnableWrite();
+}
+
+/// @brief 并不是真正的关闭，得先处理两个缓冲区中的数据
+void Connection::ShutDownInLoop()
+{
+    // 1. 设置状态
+    _status = DISCONNECTING;
+
+    // 2. 处理读缓冲区中的数据
+    // 可能缓冲区中的数据并不是完整的，但是也没关系，处理一次不管成功与否都不再继续了
+    if (_in_buffer.GetReadableDataNum() > 0)
+    {
+        if (_message_cb)
+            _message_cb(shared_from_this(), &_in_buffer);
+    }
+
+    // 3. 处理写缓冲区中的数据
+    if (_out_buffer.GetReadableDataNum() > 0)
+    {
+        if (!_channel.Writable())
+            _channel.EnableWrite();
+    }
+
+    // 4. 判断输出缓冲区是否是空了，并且关闭链接
+    if (_out_buffer.GetReadableDataNum() == 0)
+    {
+        ReleaseInLoop();
+    }
+}
+
+/// @brief 在eventloop中新增非活跃事件的销毁任务
+void Connection::AddInactiveEventReleaseInLoop(int sec)
+{
+    _enable_inactive_release = true;
+    // 如果已经存在，就更新定时任务，没有就插入定时任务
+    if (_loop->HasTimer(_conn_id))
+        _loop->RefreshTimer(_conn_id);
+    else
+        _loop->AddTimer(_conn_id, sec, std::bind(&Connection::ReleaseInLoop, this));
+}
+
+/// @brief 在eventloop中取消非活跃事件的释放
+void Connection::CancelInactiveEventReleaseInLoop()
+{
+    _enable_inactive_release = false;
+    // 定时任务必须存在
+    if (_loop->HasTimer(_conn_id))
+        _loop->CancelTimer(_conn_id);
+}
+
+/// @brief 更新上层协议
+void Connection::UpgradeContext(const Any &context, const MessageCallBack &message_cb,
+                                const AnyEventCallBack &any_cb, const ConnectedCallBack &connect_cb,
+                                const CloseCallBack &close_cb)
+{
+    _context = context;
+    _message_cb = message_cb;
+    _any_cb = any_cb;
+    _conn_cb = connect_cb;
+    _close_cb = close_cb;
 }

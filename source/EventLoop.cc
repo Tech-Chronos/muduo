@@ -2,6 +2,7 @@
 #include "Poller.h"
 #include "EventLoop.h"
 #include "TimerWheel.h"
+#include <cassert>
 
 void EventLoop::RunAllTask()
 {
@@ -30,6 +31,11 @@ EventLoop::EventLoop()
 bool EventLoop::IsInLoop()
 {
     return (std::this_thread::get_id() == _thread_id);
+}
+
+void EventLoop::AssertInLoop()
+{
+    assert(std::this_thread::get_id() == _thread_id);
 }
 
 void EventLoop::QueueInLoop(const Functor &cb)
@@ -141,7 +147,7 @@ void EventLoop::CancelTimer(uint64_t id)
 
 bool EventLoop::HasTimer(uint64_t id)
 {
-    _wheel.HasTimerId(id);
+    return _wheel.HasTimerId(id);
 }
 
 

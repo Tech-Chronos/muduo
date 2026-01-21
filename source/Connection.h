@@ -4,6 +4,7 @@
 #include "Socket.hpp"
 #include "Channel.h"
 #include "EventLoop.h"
+#include "Any.h"
 
 #include <iostream>
 #include <memory>
@@ -27,9 +28,36 @@ using CloseCallBack = std::function<void(std::shared_ptr<Connection>)>;
 class Connection : public std::enable_shared_from_this<Connection>
 {
 public:
-    Connection(EventLoop* loop, MessageCallBack message_cb, 
-               AnyEventCallBack any_cb, ConnectedCallBack conn_cb,
-               CloseCallBack close_cb, CloseCallBack server_close_cb);
+    Connection(uint64_t conn_id, int fd, EventLoop* loop);
+    ~Connection();
+
+    int GetFd();
+    int GetConnId();
+
+    /// @brief 设置上层协议类型
+    void SetContext(const Any& context);
+    Any* GetContext();
+
+    /// @brief 组件使用者设置的4个回调函数
+    void SetConnectedCallback(const ConnectedCallBack& conn_cb);
+    void SetMessageDealCallback(const MessageCallBack& message_cb);
+    void SetCloseCallback(const CloseCallBack& close_cb);
+    void SetServerCloseCallback(const CloseCallBack& server_close_cb);
+    void SetAnyEventCallback(const AnyEventCallBack& any_cb);
+
+    void Established();
+    void Send(char* data, size_t len);
+
+    void ShutDown();
+    void Release();
+
+    void AddInactiveEventRelease(int sec);
+    void CancelInactiveEventRelease();
+
+    void Upgrade(const Any& context, const MessageCallBack& message_cb,
+                        const AnyEventCallBack& any_cb, const ConnectedCallBack& connect_cb,
+                        const CloseCallBack& close_cb);
+
 private:
     // 5个事件处理函数
     void HandleRead();
@@ -38,12 +66,21 @@ private:
     void HandleError();
     void HandleAnyEvent();
 
-    void ShutDown();
     void EstablishedInLoop();
     void ReleaseInLoop();
 
     // 在eventloop中取消非活跃事件的释放
     void CancelInactiveEventReleaseInLoop();
+    // 在eventloop中新增非活跃事件的销毁任务
+    void AddInactiveEventReleaseInLoop(int sec);
+
+    // 更新协议
+    void UpgradeContext(const Any& context, const MessageCallBack& message_cb,
+                        const AnyEventCallBack& any_cb, const ConnectedCallBack& connect_cb,
+                        const CloseCallBack& close_cb);
+
+    void SendInLoop(char* data, size_t len);
+    void ShutDownInLoop();
     
 private:
     uint64_t _conn_id; // 表示当前连接的id
@@ -62,4 +99,6 @@ private:
     ConnectedCallBack _conn_cb; // 刚建立链接的回调函数
     CloseCallBack _close_cb; // 链接关闭的客户端回调函数
     CloseCallBack _server_close_cb; // 链接关闭的服务器回调函数
+
+    Any _context; // 上层的协议类型
 };

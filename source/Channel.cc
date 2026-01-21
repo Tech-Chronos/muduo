@@ -5,6 +5,17 @@
 Channel::Channel(int fd, EventLoop *loop)
     : _fd(fd), _events(0), _revents(0), _loop(loop) {}
 
+
+bool Channel::Readable()
+{
+    return _events & EPOLLIN;
+}
+
+bool Channel::Writable()
+{
+    return _events & EPOLLOUT;
+}
+
 void Channel::Update()
 {
     _loop->UpdateEvents(this);
