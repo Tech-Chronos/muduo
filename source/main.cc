@@ -9,10 +9,11 @@
 
 int main()
 {
+    char* ch = "hello";
     uint64_t id = 100;
     EventLoop loop;
     Connection conn(id, 2, &loop);
-    
+    conn.Send(ch, 5);
     return 0;
 }
 

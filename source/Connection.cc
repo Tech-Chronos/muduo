@@ -56,7 +56,7 @@ void Connection::SetCloseCallback(const CloseCallBack &close_cb)
 
 void Connection::SetServerCloseCallback(const CloseCallBack &server_close_cb)
 {
-    _server_close_cb = server_close_cb; 
+    _server_close_cb = server_close_cb;
 }
 
 void Connection::SetAnyEventCallback(const AnyEventCallBack &any_cb)
@@ -151,9 +151,12 @@ void Connection::Established()
     _loop->RunInLoop(std::bind(&Connection::EstablishedInLoop, this));
 }
 
+/// @brief 这个只是把Send函数放到任务队列，可能还没等到执行，就释放了data
 void Connection::Send(char *data, size_t len)
 {
-    _loop->RunInLoop(std::bind(&Connection::SendInLoop, this, data, len));
+    Buffer buf;
+    buf.WriteAndPush(data, len);
+    _loop->RunInLoop(std::bind(&Connection::SendInLoop, this, buf));
 }
 
 void Connection::ShutDown()
@@ -176,10 +179,9 @@ void Connection::CancelInactiveEventRelease()
     _loop->RunInLoop(std::bind(&Connection::CancelInactiveEventReleaseInLoop, this));
 }
 
-
 // 必须保证这个任务在自己的eventloop中立即执行，因为加入业务线程执行，把这个任务放到任务队列中，但是eventloop还没来得及处理
 // 此时又突然来了一个事件，那就会造成这个新来的事件会拿着旧的协议进行处理，就会出错
-// 所以必须在自己的eventloop中立即处理这个函数，不能放到业务线程处理！！！！
+// 所以必须在自己的eventloop中立即处理这个函数，不能放到业务线程处理
 void Connection::Upgrade(const Any &context, const MessageCallBack &message_cb,
                          const AnyEventCallBack &any_cb, const ConnectedCallBack &connect_cb,
                          const CloseCallBack &close_cb)
@@ -234,12 +236,12 @@ void Connection::ReleaseInLoop()
 }
 
 /// @brief 并不是真正的发送数据，只是把数据放到outbuffer中：业务完成后的数据data
-void Connection::SendInLoop(char *data, size_t len)
+void Connection::SendInLoop(Buffer buf)
 {
     if (_status == DISCONNECTED)
         return;
     // 1. 插入数据
-    _out_buffer.WriteAndPush(data, len);
+    _out_buffer.WriteBufferAndPush(buf);
     // 2. 启动读事件
     if (!_channel.Writable())
         _channel.EnableWrite();

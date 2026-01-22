@@ -79,7 +79,7 @@ private:
                         const AnyEventCallBack& any_cb, const ConnectedCallBack& connect_cb,
                         const CloseCallBack& close_cb);
 
-    void SendInLoop(char* data, size_t len);
+    void SendInLoop(Buffer buf);
     void ShutDownInLoop();
     
 private:
