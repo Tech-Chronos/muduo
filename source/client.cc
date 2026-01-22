@@ -16,6 +16,5 @@ int main()
         client.SendNonBlock(mess.c_str(), mess.size());
         sleep(1);
     }
-
-    sleep(100);
+    sleep(10);
 }

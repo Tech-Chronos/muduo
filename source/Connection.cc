@@ -229,10 +229,12 @@ void Connection::ReleaseInLoop()
     // 客户端的回调函数是通知用户的，我已经和你断开链接了
     // 避免先移除服务器管理的连接信息导致Connection被释放，
     // 再去处理会出错，因此先调用用户回调
-    _close_cb(shared_from_this());
+    if (_close_cb)
+        _close_cb(shared_from_this());
 
     // 告诉TCP SERVER，把这条链接从链接表中移除
-    _server_close_cb(shared_from_this());
+    if (_server_close_cb)
+        _server_close_cb(shared_from_this());
 }
 
 /// @brief 并不是真正的发送数据，只是把数据放到outbuffer中：业务完成后的数据data
