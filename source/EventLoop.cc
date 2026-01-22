@@ -54,7 +54,7 @@ void EventLoop::RunInLoop(const Functor &cb)
 {
     if (IsInLoop())
     {
-        cb();
+        return cb();
     }
     return QueueInLoop(cb);
 }

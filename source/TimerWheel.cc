@@ -21,15 +21,16 @@ uint32_t TimerTask::GetTimeOut()
 
 void TimerTask::Cancel()
 {
-    _cancel = false;
+    _cancel = true;
 }
 
 TimerTask::~TimerTask()
 {
-    std::cout << "Timer task delete" << std::endl;
-    if (_cancel)
+    INF_LOG("Timer task delete");
+    if (!_cancel && _task_cb)
         _task_cb();
-    _release();
+    if (_release)
+        _release();
 }
 
 // TimerWheel

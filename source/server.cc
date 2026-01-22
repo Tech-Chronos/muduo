@@ -30,13 +30,13 @@ void MessageDealCb(std::shared_ptr<Connection> conn, Buffer* buf)
 void AcceptHelper(EventLoop* loop, int io_fd)
 {
     static int con_id = 1;
-    Connection new_con(con_id, io_fd, loop);
-    new_con.SetConnectedCallback(std::bind(ConnCb, std::placeholders::_1));
-    new_con.SetServerCloseCallback(std::bind(ServerCloseCb, std::placeholders::_1));
-    new_con.SetMessageDealCallback(std::bind(MessageDealCb, std::placeholders::_1, std::placeholders::_2));
-    new_con.Established();
+    std::shared_ptr<Connection> new_con = std::make_shared<Connection>(con_id, io_fd, loop);
+    new_con->SetConnectedCallback(std::bind(ConnCb, std::placeholders::_1));
+    new_con->SetServerCloseCallback(std::bind(ServerCloseCb, std::placeholders::_1));
+    new_con->SetMessageDealCallback(std::bind(MessageDealCb, std::placeholders::_1, std::placeholders::_2));
+    new_con->Established();
 
-    new_con.AddInactiveEventRelease(5);
+    new_con->AddInactiveEventRelease(5);
     ++con_id;
 }
 
