@@ -3,7 +3,7 @@
 #include "EventLoop.h"
 
 Channel::Channel(int fd, EventLoop *loop)
-    : _fd(fd), _events(0), _revents(0), _loop(loop) {}
+    : _fd(fd), _events(0), _revents(0), _loop(loop), _removed(false) {}
 
 
 bool Channel::Readable()
@@ -18,12 +18,16 @@ bool Channel::Writable()
 
 void Channel::Update()
 {
+    if (_removed) remove;
     _loop->UpdateEvents(this);
 }
 
 void Channel::Remove()
 {
+    if (_removed) return;
     _loop->RemoveEvent(this);
+    _removed = true;
+    _events = 0;
 }
 
 uint32_t Channel::GetEvents() const

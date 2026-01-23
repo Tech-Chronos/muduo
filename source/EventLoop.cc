@@ -165,7 +165,7 @@ void ThreadLoop::ThreadEntry()
 
 ThreadLoop::ThreadLoop()
         : _loop(nullptr)
-        , _thread(&ThreadLoop::ThreadEntry, this)
+        , _thread(std::thread(&ThreadLoop::ThreadEntry, this))
     {}
 
 EventLoop* ThreadLoop::GetEventLoopPtr()

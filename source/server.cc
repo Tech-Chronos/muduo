@@ -10,9 +10,9 @@
 #include <unordered_map>
 
 std::unordered_map<uint64_t, std::shared_ptr<Connection>> conns;
-std::vector<ThreadLoop> threads(2);
+std::vector<ThreadLoop*> threads(2);
 EventLoop base_thread;
-int next_loop = 1;
+int next_loop = 0;
 
 void ConnCb(std::shared_ptr<Connection> conn)
 {
@@ -33,7 +33,7 @@ void MessageDealCb(std::shared_ptr<Connection> conn, Buffer* buf)
 void AcceptHelper(EventLoop* loop, int io_fd)
 {
     static int con_id = 1;
-    EventLoop* next = threads[next_loop].GetEventLoopPtr();
+    EventLoop* next = threads[next_loop]->GetEventLoopPtr();
     std::shared_ptr<Connection> new_con = std::make_shared<Connection>(con_id, io_fd, next);
     new_con->SetConnectedCallback(std::bind(ConnCb, std::placeholders::_1));
     new_con->SetServerCloseCallback(std::bind(ServerCloseCb, std::placeholders::_1));
@@ -47,7 +47,7 @@ void AcceptHelper(EventLoop* loop, int io_fd)
 
 int main()
 {
-    //EventLoop loop;
+    //EventLoop base_thread;
     Acceptor acc(8888, &base_thread);
     acc.SetAcceptCallback(std::bind(AcceptHelper, &base_thread, std::placeholders::_1));
     acc.Listen();

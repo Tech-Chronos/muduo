@@ -42,4 +42,5 @@ private:
     EventLoop* _loop;         
 
     EventCallback _write_cb, _read_cb, _error_cb, _close_cb, _any_cb;
+    bool _removed;
 };

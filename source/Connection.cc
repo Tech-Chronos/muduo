@@ -77,6 +77,10 @@ void Connection::HandleRead()
         ShutDownInLoop();
         return;
     }
+    if (ret == 0)
+    {
+        return ReleaseInLoop();
+    }
     // 2. 将接收到的数据放到缓冲区中
     _in_buffer.WriteAndPush(buf, ret);
 
@@ -212,6 +216,7 @@ void Connection::EstablishedInLoop()
 /// @brief 真正关闭链接的函数
 void Connection::ReleaseInLoop()
 {
+    if (_status == DISCONNECTED) return;
     // 1. 将状态设置为关闭
     _status = DISCONNECTED;
 
@@ -285,8 +290,16 @@ void Connection::AddInactiveEventReleaseInLoop(int sec)
     if (_loop->HasTimer(_conn_id))
         _loop->RefreshTimer(_conn_id);
     else
-        _loop->AddTimer(_conn_id, sec, std::bind(&Connection::ReleaseInLoop, this));
+    {
+        std::weak_ptr<Connection> weak_con = shared_from_this();
+        _loop->AddTimer(_conn_id, sec, [weak_con]{
+            auto shared_con = weak_con.lock();
+            if (!shared_con) return;
+            shared_con->ReleaseInLoop();
+        });
+    }
 }
+   
 
 /// @brief 在eventloop中取消非活跃事件的释放
 void Connection::CancelInactiveEventReleaseInLoop()
