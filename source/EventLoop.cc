@@ -165,7 +165,7 @@ void ThreadLoop::ThreadEntry()
 
 ThreadLoop::ThreadLoop()
         : _loop(nullptr)
-        , _thread(std::thread(&ThreadLoop::ThreadEntry, this))
+        , _thread(&ThreadLoop::ThreadEntry, this)
     {}
 
 EventLoop* ThreadLoop::GetEventLoopPtr()
@@ -173,9 +173,43 @@ EventLoop* ThreadLoop::GetEventLoopPtr()
     EventLoop* loop = nullptr;
     {
         std::unique_lock<std::mutex> _lock(_mutex);
-        _cond.wait(_lock, [&]()mutable { return _loop != nullptr; });
+        _cond.wait(_lock, [&]() { return _loop != nullptr; });
         loop = _loop;
     }
     return loop;
 }
 
+
+////////////////////////////////ThreadLoopPool 模块//////////////////////////////////////
+ThreadLoopPool::ThreadLoopPool(EventLoop* base_loop)
+    : _thread_count(0)
+    , _next_loop_idx(0)
+    , _base_loop(base_loop)
+{}
+
+EventLoop* ThreadLoopPool::NextLoop() // 外部需要获取的下一个EventLoop
+{
+    if (_thread_count == 0) return _base_loop;
+    _next_loop_idx = (_next_loop_idx + 1) % _thread_count;
+    return _threads[_next_loop_idx]->GetEventLoopPtr();
+}
+
+void ThreadLoopPool::SetThreadCount(int count)
+{
+    _thread_count = count;
+}
+
+void ThreadLoopPool::CreateThread()
+{
+    if (_thread_count > 0)
+    {
+        _threads.resize(_thread_count);
+        _loops.resize(_thread_count);
+        for (int i = 0; i < _thread_count; ++i)
+        {
+            _threads[i] = new ThreadLoop();
+            _loops[i] = _threads[i]->GetEventLoopPtr();
+        }
+    }
+    return ;
+}

@@ -1,6 +1,8 @@
 #include "Poller.h"
 #include "Channel.h"
 #include <unistd.h>
+#include <cstring>
+#include <cerrno>
 
 Poller::Poller()
 {
@@ -30,7 +32,8 @@ void Poller::UpdateMonitor(Channel *channel, int op)
     ev.events = channel->GetEvents();
     if (epoll_ctl(_epfd, op, channel->Fd(), &ev) < 0)
     {
-        ERR_LOG("epoll_ctl error!");
+        //ERR_LOG("epoll_ctl error!");
+        ERR_LOG("epoll_ctl error! op=%d fd=%d errno=%d (%s)", op, channel->Fd(), errno, strerror(errno));
         std::exit(-1);
     }
 }

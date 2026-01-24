@@ -68,3 +68,23 @@ private:
     EventLoop* _loop; // 需要在线程内部初始化
     std::thread _thread; // 创建Eventloop的线程
 };
+
+
+class ThreadLoopPool
+{
+public:
+    ThreadLoopPool(EventLoop* base_loop);
+
+    EventLoop* NextLoop(); // 外部需要获取的下一个EventLoop
+ 
+    void SetThreadCount(int count);
+
+    void CreateThread();
+
+private:
+    int _thread_count; // 外部控制线程数量
+    int _next_loop_idx; // 下一个线程的下标索引
+    EventLoop* _base_loop; // 当线程的数量是0的时候，一直都是用的主线程
+    std::vector<ThreadLoop*> _threads; // 管理的所有的线程
+    std::vector<EventLoop*> _loops;  // 所有线程的EventLoop
+};

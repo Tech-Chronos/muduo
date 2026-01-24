@@ -18,7 +18,7 @@ bool Channel::Writable()
 
 void Channel::Update()
 {
-    if (_removed) remove;
+    if (_removed) return;
     _loop->UpdateEvents(this);
 }
 

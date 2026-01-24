@@ -72,6 +72,10 @@ void Connection::HandleRead()
     char buf[65535] = {0};
     ssize_t ret = _socket.RecvNonBlock(buf, sizeof(buf));
     // 错误读取不是真正的关闭连接
+    if (ret == -2)
+    {
+        return;
+    }
     if (ret < 0)
     {
         ShutDownInLoop();
@@ -152,7 +156,9 @@ void Connection::HandleAnyEvent()
 
 void Connection::Established()
 {
-    _loop->RunInLoop(std::bind(&Connection::EstablishedInLoop, this));
+    auto self = shared_from_this();
+    //std::cout << "当前线程 id: " << pthread_self() << std::endl;
+    _loop->RunInLoop([self] { self->EstablishedInLoop(); });
 }
 
 /// @brief 这个只是把Send函数放到任务队列，可能还没等到执行，就释放了data
@@ -160,27 +166,32 @@ void Connection::Send(char *data, size_t len)
 {
     Buffer buf;
     buf.WriteAndPush(data, len);
-    _loop->RunInLoop(std::bind(&Connection::SendInLoop, this, buf));
+    auto self = shared_from_this();
+    _loop->RunInLoop([self, buf]{ self->SendInLoop(buf); });
 }
 
 void Connection::ShutDown()
 {
-    _loop->RunInLoop(std::bind(&Connection::ShutDownInLoop, this));
+    auto self = shared_from_this();
+    _loop->RunInLoop( [self] { self->ShutDownInLoop();} );
 }
 
 void Connection::Release()
 {
-    _loop->RunInLoop(std::bind(&Connection::ReleaseInLoop, this));
+    auto self = shared_from_this();
+    _loop->RunInLoop([self] { self->ReleaseInLoop(); });
 }
 
 void Connection::AddInactiveEventRelease(int sec)
 {
-    _loop->RunInLoop(std::bind(&Connection::AddInactiveEventReleaseInLoop, this, sec));
+    auto self = shared_from_this();
+    _loop->RunInLoop([self, sec] { self->AddInactiveEventReleaseInLoop(sec); });
 }
 
 void Connection::CancelInactiveEventRelease()
 {
-    _loop->RunInLoop(std::bind(&Connection::CancelInactiveEventReleaseInLoop, this));
+    auto self = shared_from_this();
+    _loop->RunInLoop([self] { self->CancelInactiveEventReleaseInLoop(); });
 }
 
 // 必须保证这个任务在自己的eventloop中立即执行，因为加入业务线程执行，把这个任务放到任务队列中，但是eventloop还没来得及处理
@@ -191,9 +202,12 @@ void Connection::Upgrade(const Any &context, const MessageCallBack &message_cb,
                          const CloseCallBack &close_cb)
 {
     // 这里直接端严即可
+    auto self = shared_from_this();
     _loop->AssertInLoop();
-    _loop->RunInLoop(std::bind(&Connection::UpgradeContext, this, context, message_cb,
-                               any_cb, connect_cb, close_cb));
+    _loop->RunInLoop([self, context, message_cb,any_cb, connect_cb, close_cb] 
+                    {
+                        self->UpgradeContext(context, message_cb, any_cb, connect_cb, close_cb);
+                    });
 }
 
 /// @brief 获取链接之后，新链接所出的状态要进行设置
@@ -208,7 +222,6 @@ void Connection::EstablishedInLoop()
     //    例如刷新活跃度
     // channel的回调函数在构造函数之前就已经设置好了，所以这里就不用担心了
     _channel.EnableRead();
-
     // 3. 建立完成之后，要调用 connected_cb，这个函数用来 确定协议 或者 给客户端发送欢迎 或者 启动非活跃事件监测 的函数
     _conn_cb(shared_from_this()); // 常见的就是 addtimer
 }
@@ -216,6 +229,7 @@ void Connection::EstablishedInLoop()
 /// @brief 真正关闭链接的函数
 void Connection::ReleaseInLoop()
 {
+    auto self = shared_from_this();
     if (_status == DISCONNECTED) return;
     // 1. 将状态设置为关闭
     _status = DISCONNECTED;
@@ -235,11 +249,11 @@ void Connection::ReleaseInLoop()
     // 避免先移除服务器管理的连接信息导致Connection被释放，
     // 再去处理会出错，因此先调用用户回调
     if (_close_cb)
-        _close_cb(shared_from_this());
+        _close_cb(self);
 
     // 告诉TCP SERVER，把这条链接从链接表中移除
     if (_server_close_cb)
-        _server_close_cb(shared_from_this());
+        _server_close_cb(self);
 }
 
 /// @brief 并不是真正的发送数据，只是把数据放到outbuffer中：业务完成后的数据data
@@ -292,7 +306,8 @@ void Connection::AddInactiveEventReleaseInLoop(int sec)
     else
     {
         std::weak_ptr<Connection> weak_con = shared_from_this();
-        _loop->AddTimer(_conn_id, sec, [weak_con]{
+        _loop->AddTimer(_conn_id, sec, [weak_con]
+        {
             auto shared_con = weak_con.lock();
             if (!shared_con) return;
             shared_con->ReleaseInLoop();

@@ -150,7 +150,7 @@ public:
         {
             if (errno == EWOULDBLOCK || errno == EINTR || errno == EAGAIN)
             {
-                return 0;
+                return -2;
             }
             return -1;
         }
