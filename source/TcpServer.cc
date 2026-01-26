@@ -27,6 +27,7 @@ void TcpServer::RemoveConnect(std::shared_ptr<Connection> conn)
     });
 }
 
+// 1.
 TcpServer::TcpServer(int port)
     : _id(0), _timer_id(0), _thread_count(0), _port(port), _base_loop(new EventLoop()), _enable_inactive_event_release(false), _acceptor(port, _base_loop), _pool(_base_loop)
 {
@@ -35,11 +36,18 @@ TcpServer::TcpServer(int port)
     SetServerCloseCallback();
 }
 
+// 2.
 void TcpServer::SetThreadCountAndCreate(int count)
 {
     _thread_count = count;
     _pool.SetThreadCount(count);
     _pool.CreateThread();
+}
+
+// 3.
+void TcpServer::AcceptorStart()
+{
+    _base_loop->Start();
 }
 
 void TcpServer::EnableIncativeEventRelease(int timeout)
@@ -48,10 +56,7 @@ void TcpServer::EnableIncativeEventRelease(int timeout)
     _timeout = timeout;
 }
 
-void TcpServer::AcceptorStart()
-{
-    _base_loop->Start();
-}
+
 
 void TcpServer::SetConnectionCallback(const ConnectedCallBack &cb)
 {

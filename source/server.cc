@@ -61,40 +61,43 @@
 //         base_loop.Start();
 // }
 
-#include "TcpServer.h"
+#include "EchoServer.h"
 #include "Buffer.hpp"
 #include <iostream>
 
-void OnConnected(std::shared_ptr<Connection> conn)
-{
-    std::cout << "new conn id=" << conn->GetConnId() << std::endl;
-}
+// void OnConnected(std::shared_ptr<Connection> conn)
+// {
+//     //std::cout << "new conn id=" << conn->GetConnId() << std::endl;
+//     INF_LOG("new conn id=%d", conn->GetConnId());
+// }
 
-void OnMessage(std::shared_ptr<Connection> conn, Buffer *buf)
-{
-    // 简单 echo
-    if (buf->GetReadableDataNum() > 0)
-    {
-        std::string data(buf->GetReadPos(), buf->GetReadableDataNum());
-        buf->MoveReadOffset(buf->GetReadableDataNum());
-        conn->Send(const_cast<char *>(data.data()), data.size());
-    }
-}
+// void OnMessage(std::shared_ptr<Connection> conn, Buffer *buf)
+// {
+//     // 简单 echo
+//     if (buf->GetReadableDataNum() > 0)
+//     {
+//         std::string data(buf->GetReadPos(), buf->GetReadableDataNum());
+//         buf->MoveReadOffset(buf->GetReadableDataNum());
+//         conn->Send(const_cast<char *>(data.data()), data.size());
+//     }
+// }
 
-void OnClose(std::shared_ptr<Connection> conn)
-{
-    std::cout << "conn closed id=" << conn->GetConnId() << std::endl;
-}
+// void OnClose(std::shared_ptr<Connection> conn)
+// {
+//     std::cout << "conn closed id=" << conn->GetConnId() << std::endl;
+// }
 
 int main()
 {
-    TcpServer server(8888);
-    server.SetServerCloseCallback(); // 必须，否则不会从 _conns 移除
-    server.SetConnectionCallback(OnConnected);
-    server.SetMessageCallback(OnMessage);
-    server.SetCloseCallback(OnClose);
+    // server.SetServerCloseCallback(); // 必须，否则不会从 _conns 移除
+    // server.SetConnectionCallback(OnConnected);
+    // server.SetMessageCallback(OnMessage);
+    // server.SetCloseCallback(OnClose);
 
-    server.SetThreadCountAndCreate(2);
-    server.AcceptorStart();
+    // server.SetThreadCountAndCreate(2);
+    // server.AcceptorStart();
+
+    EchoServer server(8888);
+    server.StartServer();
     return 0;
 }
