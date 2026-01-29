@@ -2,10 +2,10 @@
 #include <string>
 #include <unordered_map>
 
-class HttpReaponse
+class HttpResponse
 {
 public:
-    HttpReaponse(int code = 200);
+    HttpResponse(int code = 200);
     void Reset();
 
     void SetHeaders(const std::string& key, const std::string& val);

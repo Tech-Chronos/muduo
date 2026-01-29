@@ -23,6 +23,7 @@ public:
     std::string _method;  // 请求方法
     std::string _uri;     // 请求额的uri
     std::string _version; // http 版本
+    std::string _body; // 请求正文
 
     std::smatch _matches; 
 
