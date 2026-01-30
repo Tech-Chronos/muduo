@@ -194,3 +194,10 @@ void HttpContext::RecvHttpRequest(Buffer* buf)
     return;
 }
 
+void HttpContext::Reset()
+{
+    _resp_code = 200;
+    _status = RECV_REQ_LINE;
+    _req.Reset();
+}
+
