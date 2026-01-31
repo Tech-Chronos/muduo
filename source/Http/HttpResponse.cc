@@ -19,7 +19,7 @@ void HttpResponse::SetHeaders(const std::string& key, const std::string& val)
     _headers.insert(std::make_pair(key, val));
 }
 
-bool HttpResponse::HasHeaders(const std::string& key)
+bool HttpResponse::HasHeaders(const std::string& key) const
 {
     auto it = _headers.find(key);
     if (it == _headers.end()) return false;
@@ -41,6 +41,13 @@ void HttpResponse::SetRedirect(const std::string &redirect_uri, int code)
     _redirect_flag = true;
     _redirect_uri = redirect_uri;
 }
+
+void HttpResponse::SetContent(const std::string& body, const std::string& type)
+{
+    _body = body;
+    SetHeaders("Content-Type", type);
+}
+
 
 bool HttpResponse::IsKeepAlive()
 {

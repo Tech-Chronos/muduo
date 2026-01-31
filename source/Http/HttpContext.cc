@@ -41,7 +41,7 @@ bool HttpContext::ParseReqLine(const std::string& req_line)
 {
     // 用正则表达式分割请求行：请求方法、请求资源、查询字符串、http版本
     std::smatch matches;
-    std::regex pattern("(GET|PUT|POST|OPTIONS|DELETE|PATCH|HEAD) ([^\\?]+)(?:[\\?])?([^\\s]+) (HTTP/1\\.[01])(?:\n|\r\n))");
+    std::regex pattern("(GET|PUT|POST|OPTIONS|DELETE|PATCH|HEAD) ([^\\?]+)(?:[\\?])?([^\\s]+) (HTTP/1\\.[01])(?:\n|\r\n))", std::regex::icase);
 
     bool ret = std::regex_match(req_line, matches, pattern);
     if (ret == false)
@@ -53,6 +53,7 @@ bool HttpContext::ParseReqLine(const std::string& req_line)
     }
 
     _req._method = matches[1];
+    transform(_req._method.begin(), _req._method.end(), _req._method.begin(), toupper);
     // 不需要将 "+ -> 空格"
     _req._uri = Util::UrlDecode(matches[2], false);
     _req._version = matches[4];

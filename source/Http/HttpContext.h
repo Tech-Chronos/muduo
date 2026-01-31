@@ -2,8 +2,11 @@
 #include "HttpRequest.h"
 #include "../Common.hpp"
 #include "../Buffer.hpp"
+#include "../Any.h"
 #include "util.h"
 #include <regex>
+#include <algorithm>
+#include <ctype.h>
 
 #define MaxLine 8192
 
@@ -32,6 +35,7 @@ public:
     RecvStatus GetStatus();
     HttpRequest& GetRequest();
     void RecvHttpRequest(Buffer*);
+    void Reset();
 private:
     int _resp_code; //响应状态码
     RecvStatus _status; // 接收到哪个部分了

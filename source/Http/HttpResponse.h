@@ -9,10 +9,12 @@ public:
     void Reset();
 
     void SetHeaders(const std::string& key, const std::string& val);
-    bool HasHeaders(const std::string& key);
+    bool HasHeaders(const std::string& key) const;
     std::string GetHeaders(const std::string& key);
 
     void SetRedirect(const std::string& redirect_uri, int code = 302);
+
+    void SetContent(const std::string& body, const std::string& type = "text/html");
 
     bool IsKeepAlive();
 public:

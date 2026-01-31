@@ -162,7 +162,7 @@ void Connection::Established()
 }
 
 /// @brief 这个只是把Send函数放到任务队列，可能还没等到执行，就释放了data
-void Connection::Send(char *data, size_t len)
+void Connection::Send(const char *data, size_t len)
 {
     Buffer buf;
     buf.WriteAndPush(data, len);

@@ -46,7 +46,7 @@ public:
     void SetAnyEventCallback(const AnyEventCallBack& any_cb);
 
     void Established();
-    void Send(char* data, size_t len);
+    void Send(const char* data, size_t len);
 
     void ShutDown();
     void Release();

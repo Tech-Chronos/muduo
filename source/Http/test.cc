@@ -2,6 +2,7 @@
 #include "HttpContext.h"
 #include "HttpRequest.h"
 #include "HttpResponse.h"
+#include "HttpServer.h"
 
 // int main()
 // {
